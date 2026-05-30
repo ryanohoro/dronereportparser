@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "safetydronereportparser"
+version = "0.1.0"
+description = "Parse SafetyDrone Operations Report PDFs into CSV/XLSX"
+authors = ["Ryan O'Horo <10855297+ryanohoro@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pdfplumber = "^0.11.9"
+pymupdf = "^1.27.2.3"
+openpyxl = "^3.1.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
