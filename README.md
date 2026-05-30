@@ -1,6 +1,6 @@
 # safetydronereportparser
 
-Converts SafetyDrone **Operations Report** PDFs into CSV and XLSX.
+Converts SafetyDrone Operations Report PDFs into CSV and XLSX.
 
 ## Usage
 
