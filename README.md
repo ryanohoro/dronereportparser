@@ -1,11 +1,19 @@
 # safetydronereportparser
 
-Converts SafetyDrone Operations Report PDFs into CSV and XLSX.
+Converts drone operations report PDFs into CSV and XLSX.
+
+## Parsers
+
+| Script | Format |
+|--------|--------|
+| `parse_safetydrone_pdf.py` | SafetyDrone Operations Report (columnar table layout) |
+| `parse_airdata_pdf.py` | Airdata UAV Flight Report (labeled key:value layout) |
 
 ## Usage
 
 ```
-python parse_flights.py [--comments] <input.pdf> [output.csv]
+python parse_safetydrone_pdf.py [--comments] <input.pdf> [output.csv]
+python parse_airdata_pdf.py [--comments] <input.pdf> [output.csv]
 ```
 
 - Output defaults to the same basename as the input with a `.csv` extension.
@@ -19,11 +27,10 @@ python parse_flights.py [--comments] <input.pdf> [output.csv]
 | `.csv` | UTF-8 BOM, fully quoted, CRLF, Excel-compatible |
 | `.xlsx` | **Flights** sheet (frozen header, auto-width) + **Metadata** sheet |
 
-Each flight row captures: date/time, flight name, drone, duration, location (address + lat/lon), flight type, personnel, weather conditions, IGC/KML links, and notes.
-
 ## Setup
 
 ```
 poetry install
-poetry run python parse_flights.py <input.pdf>
+poetry run python parse_safetydrone_pdf.py <input.pdf>
+poetry run python parse_airdata_pdf.py <input.pdf>
 ```
