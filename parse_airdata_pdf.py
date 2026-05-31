@@ -18,6 +18,7 @@ FIELDS = [
     'ground_wind_speed', 'ground_wind_dir', 'cloud_cover', 'humidity',
     'dew_point_f', 'pressure', 'rain_rate', 'rain_chance',
     'sunrise', 'sunset', 'moon_phase', 'moon_visibility',
+    'notes',
 ]
 
 # All known labeled fields — used as lookahead stops to bound each value capture
@@ -104,11 +105,15 @@ def parse_metadata(pages, pdf_path):
         meta['agency'] = m.group(1).strip()
         meta['total_flights'] = m.group(2)
 
-    m = re.search(r'Flight Report #(\d+)', first_text)
+    # Report number: "Flight Report #102" or "PDR S019856-021826"
+    m = (re.search(r'Flight Report #(\d+)', first_text) or
+         re.search(r'\b(PDR\s+\S+)', first_text))
     if m:
         meta['report_number'] = m.group(1)
 
-    m = re.search(r'([\w]+ \d+\w+, \d{4}) to ([\w]+ \d+\w+, \d{4})', first_text)
+    # Period: "Jan 1st, 2025 to Dec 31st, 2025" or abbreviated "Jan 2025 to Dec 2025"
+    m = (re.search(r'([\w]+ \d+\w+, \d{4}) to ([\w]+ \d+\w+, \d{4})', first_text) or
+         re.search(r'(\w+ \d{4}) to (\w+ \d{4})', first_text))
     if m:
         meta['period_start'] = m.group(1)
         meta['period_end'] = m.group(2)
@@ -156,36 +161,46 @@ def _classify_header(flight_num, inline_title, page_num, page_words, blue_rects)
         return inline_title, ''
     header_bottom = max(containing)
 
-    # Find the first 'Pilot-in-Command' word after the flight-number word.
+    # Detailed format has Pilot-in-Command in the white section right column.
+    # Summary format (e.g. Marysville) has no labeled fields — single-column layout.
     pic_words = [w for w in words
                  if w['text'].startswith('Pilot-in-Command') and w['top'] > fn_top]
-    if not pic_words:
-        return inline_title, ''
-    pic_word = min(pic_words, key=lambda w: w['top'])
-    pic_top = pic_word['top']
-    pic_x0  = pic_word['x0']
 
-    # Find the first 'Takeoff' word (start of labeled-field section) after fn_top.
-    takeoff_words = [w for w in words
-                     if w['text'] == 'Takeoff' and w['top'] > pic_top]
-    takeoff_top = min((w['top'] for w in takeoff_words), default=pic_top + 999)
-
-    # Collect words between the flight-number line and Pilot-in-Command.
     title_words = []
     addr_words  = []
-    for w in words:
-        top = w['top']
-        if top <= fn_top:
-            continue
-        if top > takeoff_top + 2:
-            break
 
-        if top < header_bottom - 1:
-            # Inside the blue header → title continuation
-            title_words.append(w)
-        elif top <= pic_top + 2 and w['x0'] < pic_x0:
-            # White section, left column, at or above Pilot-in-Command row → address
-            addr_words.append(w)
+    if pic_words:
+        # Detailed format: use Pilot-in-Command as column/row boundary.
+        pic_word = min(pic_words, key=lambda w: w['top'])
+        pic_top = pic_word['top']
+        pic_x0  = pic_word['x0']
+
+        takeoff_words = [w for w in words if w['text'] == 'Takeoff' and w['top'] > pic_top]
+        takeoff_top = min((w['top'] for w in takeoff_words), default=pic_top + 999)
+
+        for w in words:
+            top = w['top']
+            if top <= fn_top or top > takeoff_top + 2:
+                continue
+            if top < header_bottom - 1:
+                title_words.append(w)
+            elif top <= pic_top + 2 and w['x0'] < pic_x0:
+                addr_words.append(w)
+    else:
+        # Summary format: title in blue header, address in white section before next flight.
+        next_tops = [t for (t, b) in rects if t > header_bottom]
+        next_flight_top = min(next_tops, default=fn_top + 9999)
+
+        for w in sorted(words, key=lambda w: (round(w['top']), w['x0'])):
+            top = w['top']
+            if top <= fn_top:
+                continue
+            if top >= next_flight_top or w['text'].startswith(('Notes', 'Generated')):
+                break
+            if top < header_bottom - 1:
+                title_words.append(w)
+            else:
+                addr_words.append(w)
 
     def reconstruct(wlist):
         # Sort top-to-bottom, left-to-right; insert spaces between words.
@@ -270,6 +285,8 @@ def parse_flight_block(block, page_num, page_words, blue_rects):
     if m:
         f['takeoff_lat'] = m.group(1)
         f['takeoff_lon'] = m.group(2)
+
+    f['notes'] = _field(r'Notes', block)
 
     return f
 

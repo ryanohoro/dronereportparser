@@ -1,4 +1,4 @@
-# safetydronereportparser
+# dronereportparser
 
 Converts drone operations report PDFs into CSV and XLSX.
 
